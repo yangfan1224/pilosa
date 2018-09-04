@@ -680,7 +680,7 @@ func (api *API) Import(_ context.Context, req *ImportRequest) error {
 		if ts == 0 {
 			continue
 		}
-		t := time.Unix(0, ts)
+		t := time.Unix(ts, 0)
 		timestamps[i] = &t
 	}
 
