@@ -337,20 +337,20 @@ func (s *Server) Open() error {
 
 	// Initialize id-key storage.
 	if err := s.holder.translateFile.Open(); err != nil {
-		return err
+		return errors.Wrap(err, "opening TranslateFile")
 	}
 
 	// Open Cluster management.
 	if err := s.cluster.waitForStarted(); err != nil {
-		return fmt.Errorf("opening Cluster: %v", err)
+		return errors.Wrap(err, "opening Cluster")
 	}
 
 	// Open holder.
 	if err := s.holder.Open(); err != nil {
-		return fmt.Errorf("opening Holder: %v", err)
+		return errors.Wrap(err, "opening Holder")
 	}
 	if err := s.cluster.setNodeState(nodeStateReady); err != nil {
-		return fmt.Errorf("setting nodeState: %v", err)
+		return errors.Wrap(err, "setting nodeState")
 	}
 
 	// Listen for joining nodes.
@@ -481,7 +481,9 @@ func (s *Server) receiveMessage(m Message) error {
 		if f == nil {
 			return fmt.Errorf("Local field not found: %s/%s", obj.Index, obj.Field)
 		}
-		f.addRemoteAvailableShards(roaring.NewBitmap(obj.Shard))
+		if err := f.addRemoteAvailableShards(roaring.NewBitmap(obj.Shard)); err != nil {
+			return errors.Wrap(err, "adding remote available shards")
+		}
 	case *CreateIndexMessage:
 		opt := obj.Meta
 		_, err := s.holder.CreateIndex(obj.Index, *opt)
@@ -646,7 +648,9 @@ func (s *Server) mergeRemoteStatus(ns *NodeStatus) error {
 				s.logger.Printf("Local Field not found: %s/%s", is.Name, fs.Name)
 				continue
 			}
-			f.addRemoteAvailableShards(fs.AvailableShards)
+			if err := f.addRemoteAvailableShards(fs.AvailableShards); err != nil {
+				return errors.Wrap(err, "adding remote available shards")
+			}
 		}
 	}
 
