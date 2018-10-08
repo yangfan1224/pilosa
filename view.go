@@ -228,6 +228,7 @@ func (v *view) createFragmentIfNotExists(shard uint64) (*fragment, error) {
 		Field: v.field,
 		Shard: shard,
 	}); err != nil {
+		frag.close()
 		return nil, errors.Wrap(err, "sending createshard message")
 	}
 
@@ -306,6 +307,9 @@ func (v *view) setBit(rowID, columnID uint64) (changed bool, err error) {
 
 // clearBit clears a bit within the view.
 func (v *view) clearBit(rowID, columnID uint64) (changed bool, err error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
 	shard := columnID / ShardWidth
 	frag, found := v.fragments[shard]
 	if !found {
