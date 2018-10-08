@@ -110,7 +110,6 @@ type fragment struct {
 	//checksums map[int][]byte
 	checksums sync.Map
 
-
 	// Number of operations performed before performing a snapshot.
 	// This limits the size of fragments on the heap and flushes them to disk
 	// so that they can be mmapped and heap utilization can be kept low.
@@ -476,6 +475,7 @@ func (f *fragment) unprotectedClearBit(rowID, columnID uint64) (changed bool, er
 	// Invalidate block checksum.
 	//delete(f.checksums, int(rowID/HashBlockSize))
 	f.checksums.Delete(int(rowID/HashBlockSize))
+
 	// Increment number of operations until snapshot is required.
 	if err := f.incrementOpN(); err != nil {
 		return false, errors.Wrap(err, "incrementing")
@@ -1219,6 +1219,7 @@ func (f *fragment) Blocks() []FragmentBlock {
 // readContiguousChecksums appends multiple checksums in a row and returns the count added.
 func (f *fragment) readContiguousChecksums(a *[]FragmentBlock, blockID int) (n int) {
 	for i := 0; ; i++ {
+		//chksum := f.checksums[blockID+i]
 		chksum, ok := f.checksums.Load(blockID+i)
 		if chksum == nil || !ok {
 			return i
