@@ -110,8 +110,7 @@ type fragment struct {
 	rowCache bitmapCache
 
 	// Cached checksums for each block.
-	//checksums map[int][]byte
-	checksums sync.Map
+	checksums map[int][]byte
 
 	// Number of operations performed before performing a snapshot.
 	// This limits the size of fragments on the heap and flushes them to disk
@@ -170,7 +169,7 @@ func (f *fragment) Open() error {
 		}
 
 		// Clear checksums.
-		//f.checksums = make(map[int][]byte)
+		f.checksums = make(map[int][]byte)
 
 		// Read last bit to determine max row.
 		pos := f.storage.Max()
@@ -308,7 +307,7 @@ func (f *fragment) close() error {
 	}
 
 	// Remove checksums.
-	//f.checksums = nil
+	f.checksums = nil
 
 	return nil
 }
@@ -424,8 +423,8 @@ func (f *fragment) unprotectedSetBit(rowID, columnID uint64) (changed bool, err 
 	}
 
 	// Invalidate block checksum.
-	//delete(f.checksums, int(rowID/HashBlockSize))
-	f.checksums.Delete(int(rowID/HashBlockSize))
+	delete(f.checksums, int(rowID/HashBlockSize))
+
 	// Increment number of operations until snapshot is required.
 	if err := f.incrementOpN(); err != nil {
 		return false, errors.Wrap(err, "incrementing")
@@ -476,8 +475,7 @@ func (f *fragment) unprotectedClearBit(rowID, columnID uint64) (changed bool, er
 	}
 
 	// Invalidate block checksum.
-	//delete(f.checksums, int(rowID/HashBlockSize))
-	f.checksums.Delete(int(rowID/HashBlockSize))
+	delete(f.checksums, int(rowID/HashBlockSize))
 
 	// Increment number of operations until snapshot is required.
 	if err := f.incrementOpN(); err != nil {
@@ -1218,7 +1216,7 @@ func (f *fragment) Checksum() []byte {
 // InvalidateChecksums clears all cached block checksums.
 func (f *fragment) InvalidateChecksums() {
 	f.mu.Lock()
-	//f.checksums = make(map[int][]byte)
+	f.checksums = make(map[int][]byte)
 	f.mu.Unlock()
 }
 
@@ -1271,8 +1269,8 @@ func (f *fragment) Blocks() []FragmentBlock {
 
 		// Cache checksum.
 		chksum := h.Sum()
-		//f.checksums[h.blockID] = chksum
-		f.checksums.Store(h.blockID, chksum)
+		f.checksums[h.blockID] = chksum
+
 		// Append block.
 		a = append(a, FragmentBlock{
 			ID:       h.blockID,
@@ -1291,15 +1289,14 @@ func (f *fragment) Blocks() []FragmentBlock {
 // readContiguousChecksums appends multiple checksums in a row and returns the count added.
 func (f *fragment) readContiguousChecksums(a *[]FragmentBlock, blockID int) (n int) {
 	for i := 0; ; i++ {
-		//chksum := f.checksums[blockID+i]
-		chksum, ok := f.checksums.Load(blockID+i)
-		if chksum == nil || !ok {
+		chksum := f.checksums[blockID+i]
+		if chksum == nil {
 			return i
 		}
 
 		*a = append(*a, FragmentBlock{
 			ID:       blockID + i,
-			Checksum: chksum.([]byte),
+			Checksum: chksum,
 		})
 	}
 }
@@ -1495,10 +1492,6 @@ func (f *fragment) bulkImportStandard(rowIDs, columnIDs []uint64, options *Impor
 			lastRowID = rowID
 			rowSet[rowID] = struct{}{}
 		}
-
-		// Invalidate block checksum.
-		//delete(f.checksums, int(rowID/HashBlockSize))
-		f.checksums.Delete(int(rowID/HashBlockSize))
 	}
 
 	f.mu.Lock()
@@ -1522,6 +1515,9 @@ func (f *fragment) bulkImportStandard(rowIDs, columnIDs []uint64, options *Impor
 
 	// Update cache counts for all affected rows.
 	for rowID := range rowSet {
+		// Invalidate block checksum.
+		delete(f.checksums, int(rowID/HashBlockSize))
+
 		n := results.CountRange(rowID*ShardWidth, (rowID+1)*ShardWidth)
 		f.cache.BulkAdd(rowID, n)
 	}
@@ -1594,8 +1590,7 @@ func (f *fragment) bulkImportMutex(rowIDs, columnIDs []uint64) error {
 			}
 
 			// Invalidate block checksum.
-			//delete(f.checksums, int(rowID/HashBlockSize))
-			f.checksums.Delete(int(rowID/HashBlockSize))
+			delete(f.checksums, int(rowID/HashBlockSize))
 		}
 
 		// Update cache counts for all rows.
@@ -1739,7 +1734,6 @@ func (f *fragment) snapshot() error {
 // f.mu must be locked when calling it.
 func unprotectedWriteToFragment(f *fragment, bm *roaring.Bitmap) error { // nolint: interfacer
 
-	f.Logger.Printf("fragment: snapshotting %s/%s/%s/%d", f.index, f.field, f.view, f.shard)
 	completeMessage := fmt.Sprintf("fragment: snapshot complete %s/%s/%s/%d", f.index, f.field, f.view, f.shard)
 	start := time.Now()
 	defer track(start, completeMessage, f.stats, f.Logger)

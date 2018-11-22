@@ -801,8 +801,8 @@ func (api *API) Import(ctx context.Context, req *ImportRequest, opts ...ImportOp
 		if ts == 0 {
 			continue
 		}
-		//t := time.Unix(ts, 0)
-		t := time.Unix(0, ts).UTC()
+		//t := time.Unix(0, ts).UTC()
+		t := time.Unix(0, ts)
 		timestamps[i] = &t
 	}
 
@@ -958,7 +958,7 @@ func (api *API) validateShardOwnership(indexName string, shard uint64) error {
 }
 
 func (api *API) indexField(indexName string, fieldName string, shard uint64) (*Index, *Field, error) {
-	api.server.logger.Printf("importing: %v %v %v", indexName, fieldName, shard)
+	api.server.logger.Debugf("importing: %v %v %v", indexName, fieldName, shard)
 
 	// Find the Index.
 	index := api.holder.Index(indexName)
