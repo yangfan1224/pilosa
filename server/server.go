@@ -142,7 +142,7 @@ func (m *Command) Start() (err error) {
 	go func() {
 		err := m.Handler.Serve()
 		if err != nil {
-			m.logger.Printf("handler serve error: %v", err)
+			m.logger.Errorf("handler serve error: %v", err)
 		}
 	}()
 
@@ -151,7 +151,7 @@ func (m *Command) Start() (err error) {
 		return errors.Wrap(err, "opening server")
 	}
 
-	m.logger.Printf("listening as %s\n", m.API.Node().URI)
+	m.logger.Infof("listening as %s\n", m.API.Node().URI)
 
 	return nil
 }
@@ -163,13 +163,13 @@ func (m *Command) Wait() error {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	select {
 	case sig := <-c:
-		m.logger.Printf("received signal '%s', gracefully shutting down...\n", sig.String())
+		m.logger.Infof("received signal '%s', gracefully shutting down...\n", sig.String())
 
 		// Second signal causes a hard shutdown.
 		go func() { <-c; os.Exit(1) }()
 		return errors.Wrap(m.Close(), "closing command")
 	case <-m.done:
-		m.logger.Printf("server closed externally")
+		m.logger.Infof("server closed externally")
 		return nil
 	}
 }
@@ -209,7 +209,7 @@ func (m *Command) SetupServer() error {
 	if pilosa.EnterpriseEnabled {
 		productName += " Enterprise"
 	}
-	m.logger.Printf("%s %s, build time %s\n", productName, pilosa.Version, pilosa.BuildTime)
+	m.logger.Infof("%s %s, build time %s\n", productName, pilosa.Version, pilosa.BuildTime)
 
 	uri, err := pilosa.AddressWithDefaults(m.Config.Bind)
 	if err != nil {
@@ -259,7 +259,7 @@ func (m *Command) SetupServer() error {
 
 	// Primary store configuration is handled automatically now.
 	if m.Config.Translation.PrimaryURL != "" {
-		m.logger.Printf("DEPRECATED: The primary-url configuration option is no longer used.")
+		m.logger.Warnf("DEPRECATED: The primary-url configuration option is no longer used.")
 	}
 
 	// Set Coordinator.

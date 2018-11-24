@@ -261,7 +261,7 @@ func (v *view) deleteFragment(shard uint64) error {
 		return ErrFragmentNotFound
 	}
 
-	v.logger.Printf("delete fragment: (%s/%s/%s) %d", v.index, v.field, v.name, shard)
+	v.logger.Infof("delete fragment: (%s/%s/%s) %d", v.index, v.field, v.name, shard)
 
 	// Close data files before deletion.
 	if err := fragment.Close(); err != nil {
@@ -275,7 +275,7 @@ func (v *view) deleteFragment(shard uint64) error {
 
 	// Delete fragment cache file.
 	if err := os.Remove(fragment.cachePath()); err != nil {
-		v.logger.Printf("no cache file to delete for shard %d", shard)
+		v.logger.Errorf("no cache file to delete for shard %d", shard)
 	}
 
 	delete(v.fragments, shard)

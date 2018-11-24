@@ -17,7 +17,6 @@ package pilosa
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -165,7 +164,7 @@ func OptServerInternalClient(c InternalClient) ServerOption {
 // DEPRECATED
 func OptServerPrimaryTranslateStore(store TranslateStore) ServerOption {
 	return func(s *Server) error {
-		s.logger.Printf("DEPRECATED: OptServerPrimaryTranslateStore")
+		s.logger.Infof("DEPRECATED: OptServerPrimaryTranslateStore")
 		return nil
 	}
 }
@@ -332,12 +331,12 @@ func NewServer(opts ...ServerOption) (*Server, error) {
 
 // Open opens and initializes the server.
 func (s *Server) Open() error {
-	s.logger.Printf("open server")
+	s.logger.Infof("open server")
 
 	// Log startup
 	err := s.holder.logStartup()
 	if err != nil {
-		log.Println(errors.Wrap(err, "logging startup"))
+		s.logger.Errorf("Server Open ERROR: %v",errors.Wrap(err, "logging startup"))
 	}
 
 	// Initialize id-key storage.
@@ -412,7 +411,7 @@ func (s *Server) loadNodeID() string {
 	}
 	nodeID, err := s.holder.loadNodeID()
 	if err != nil {
-		s.logger.Printf("loading NodeID: %v", err)
+		s.logger.Errorf("loading NodeID: %v", err)
 		return s.nodeID
 	}
 	return nodeID
@@ -433,7 +432,7 @@ func (s *Server) monitorAntiEntropy() {
 	ticker := time.NewTicker(s.antiEntropyInterval)
 	defer ticker.Stop()
 
-	s.logger.Printf("holder sync monitor initializing (%s interval)", s.antiEntropyInterval)
+	s.logger.Infof("holder sync monitor initializing (%s interval)", s.antiEntropyInterval)
 
 	// Initialize syncer with local holder and remote client.
 	for {
@@ -453,14 +452,14 @@ func (s *Server) monitorAntiEntropy() {
 			// abortAntiEntropyCh before starting to resize
 		}
 		// Sync holders.
-		s.logger.Printf("holder sync beginning")
+		s.logger.Infof("holder sync beginning")
 		if err := s.syncer.SyncHolder(); err != nil {
-			s.logger.Printf("holder sync error: err=%s", err)
+			s.logger.Errorf("holder sync error: err=%s", err)
 			continue
 		}
 
 		// Record successful sync in log.
-		s.logger.Printf("holder sync complete")
+		s.logger.Infof("holder sync complete")
 		dif := time.Since(t)
 		s.holder.Stats.Histogram("AntiEntropyDuration", float64(dif), 1.0)
 
@@ -632,7 +631,7 @@ func (s *Server) handleRemoteStatus(pb Message) {
 
 		err := s.mergeRemoteStatus(pb.(*NodeStatus))
 		if err != nil {
-			s.logger.Printf("merge remote status: %s", err)
+			s.logger.Errorf("merge remote status: %s", err)
 		}
 	}()
 }
@@ -656,7 +655,7 @@ func (s *Server) mergeRemoteStatus(ns *NodeStatus) error {
 			// if we don't know about a field locally, log an error because
 			// fields should be created and synced prior to shard creation
 			if f == nil {
-				s.logger.Printf("local field not found: %s/%s", is.Name, fs.Name)
+				s.logger.Errorf("local field not found: %s/%s", is.Name, fs.Name)
 				continue
 			}
 			if err := f.AddRemoteAvailableShards(fs.AvailableShards); err != nil {
@@ -672,10 +671,10 @@ func (s *Server) mergeRemoteStatus(ns *NodeStatus) error {
 func (s *Server) monitorDiagnostics() {
 	// Do not send more than once a minute
 	if s.diagnosticInterval < time.Minute {
-		s.logger.Printf("diagnostics disabled")
+		s.logger.Infof("diagnostics disabled")
 		return
 	} else {
-		s.logger.Printf("Pilosa is currently configured to send small diagnostics reports to our team every %v. More information here: https://www.pilosa.com/docs/latest/administration/#diagnostics", s.diagnosticInterval)
+		s.logger.Infof("Pilosa is currently configured to send small diagnostics reports to our team every %v. More information here: https://www.pilosa.com/docs/latest/administration/#diagnostics", s.diagnosticInterval)
 	}
 
 	s.diagnostics.Logger = s.logger
@@ -701,7 +700,7 @@ func (s *Server) monitorDiagnostics() {
 		s.diagnostics.CheckVersion()
 		err = s.diagnostics.Flush()
 		if err != nil {
-			s.logger.Printf("diagnostics error: %s", err)
+			s.logger.Errorf("diagnostics error: %s", err)
 		}
 	}
 
@@ -732,7 +731,7 @@ func (s *Server) monitorRuntime() {
 
 	defer s.gcNotifier.Close()
 
-	s.logger.Printf("runtime stats initializing (%s interval)", s.metricInterval)
+	s.logger.Infof("runtime stats initializing (%s interval)", s.metricInterval)
 
 	for {
 		// Wait for tick or a close.

@@ -369,14 +369,14 @@ func (s *TranslateFile) monitorReplication() {
 	// Keep attempting to replicate until the store closes.
 	for {
 		if err := s.replicate(ctx); err != nil {
-			s.logger.Printf("pilosa: replication error: %s", err)
+			s.logger.Errorf("pilosa: replication error: %s", err)
 		}
 
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(s.replicationRetryInterval):
-			s.logger.Printf("pilosa: reconnecting to primary replica")
+			s.logger.Infof("pilosa: reconnecting to primary replica")
 		}
 	}
 }
@@ -391,7 +391,7 @@ func (s *TranslateFile) monitorPrimaryStoreEvents() {
 			return
 		case ev := <-s.primaryStoreEvents:
 			if err := s.handlePrimaryStoreEvent(ev); err != nil {
-				s.logger.Printf("handle primary store event")
+				s.logger.Errorf("handle primary store event")
 			}
 		}
 	}

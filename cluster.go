@@ -421,7 +421,7 @@ func (c *cluster) unprotectedSetState(state string) {
 		return
 	}
 
-	c.logger.Printf("change cluster state from %s to %s on %s", c.state, state, c.Node.ID)
+	c.logger.Infof("change cluster state from %s to %s on %s", c.state, state, c.Node.ID)
 
 	var doCleanup bool
 
@@ -451,7 +451,7 @@ func (c *cluster) unprotectedSetState(state string) {
 
 		// Clean holder.
 		if err := cleaner.CleanHolder(); err != nil {
-			c.logger.Printf("holder clean error: err=%s", err)
+			c.logger.Errorf("holder clean error: err=%s", err)
 		}
 	}
 }
@@ -479,7 +479,7 @@ func (c *cluster) setNodeState(state string) error { // nolint: unparam
 		State:  state,
 	}
 
-	c.logger.Printf("sending state %s (%s)", state, c.Coordinator)
+	c.logger.Infof("sending state %s (%s)", state, c.Coordinator)
 	if err := c.sendTo(c.coordinatorNode(), ns); err != nil {
 		return fmt.Errorf("sending node state error: err=%s", err)
 	}
@@ -509,7 +509,7 @@ func (c *cluster) receiveNodeState(nodeID string, state string) error {
 		}
 	}
 	c.Topology.mu.Unlock()
-	c.logger.Printf("received state %s (%s)", state, nodeID)
+	c.logger.Infof("received state %s (%s)", state, nodeID)
 
 	if changed {
 		return c.unprotectedSetStateAndBroadcast(c.determineClusterState())
@@ -952,9 +952,9 @@ func (c *cluster) waitForStarted() error {
 			return fmt.Errorf("sending restart NodeJoin: %v", err)
 		}
 
-		c.logger.Printf("%v wait for joining to complete", c.Node.ID)
+		c.logger.Infof("%v wait for joining to complete", c.Node.ID)
 		<-c.joining
-		c.logger.Printf("joining has completed")
+		c.logger.Infof("joining has completed")
 	}
 	return nil
 }
@@ -1005,9 +1005,9 @@ func (c *cluster) handleNodeAction(nodeAction nodeAction) error {
 	j, err := c.unprotectedGenerateResizeJob(nodeAction)
 	c.mu.Unlock()
 	if err != nil {
-		c.logger.Printf("generateResizeJob error: err=%s", err)
+		c.logger.Errorf("generateResizeJob error: err=%s", err)
 		if err := c.setStateAndBroadcast(ClusterStateNormal); err != nil {
-			c.logger.Printf("setStateAndBroadcast error: err=%s", err)
+			c.logger.Errorf("setStateAndBroadcast error: err=%s", err)
 		}
 		return errors.Wrap(err, "setting state")
 	}
@@ -1021,7 +1021,7 @@ func (c *cluster) handleNodeAction(nodeAction nodeAction) error {
 	})
 
 	// Wait for the resizeJob to finish or be aborted.
-	c.logger.Printf("wait for jobResult")
+	c.logger.Infof("wait for jobResult")
 	jobResult := <-j.result
 
 	// Make sure j.run() didn't return an error.
@@ -1029,7 +1029,7 @@ func (c *cluster) handleNodeAction(nodeAction nodeAction) error {
 		return errors.Wrap(err, "running job")
 	}
 
-	c.logger.Printf("received jobResult: %s", jobResult)
+	c.logger.Infof("received jobResult: %s", jobResult)
 	switch jobResult {
 	case resizeJobStateDone:
 		if err := c.completeCurrentJob(resizeJobStateDone); err != nil {
@@ -1097,7 +1097,7 @@ func (c *cluster) listenForJoins() {
 			case nodeAction := <-c.joiningLeavingNodes:
 				err := c.handleNodeAction(nodeAction)
 				if err != nil {
-					c.logger.Printf("handleNodeAction error: err=%s", err)
+					c.logger.Errorf("handleNodeAction error: err=%s", err)
 					continue
 				}
 				setNormal = true
@@ -1109,7 +1109,7 @@ func (c *cluster) listenForJoins() {
 			if setNormal {
 				// Put the cluster back to state NORMAL and broadcast.
 				if err := c.setStateAndBroadcast(ClusterStateNormal); err != nil {
-					c.logger.Printf("setStateAndBroadcast error: err=%s", err)
+					c.logger.Errorf("setStateAndBroadcast error: err=%s", err)
 				}
 			}
 
@@ -1120,7 +1120,7 @@ func (c *cluster) listenForJoins() {
 			case nodeAction := <-c.joiningLeavingNodes:
 				err := c.handleNodeAction(nodeAction)
 				if err != nil {
-					c.logger.Printf("handleNodeAction error: err=%s", err)
+					c.logger.Errorf("handleNodeAction error: err=%s", err)
 					continue
 				}
 				setNormal = true
@@ -1134,13 +1134,13 @@ func (c *cluster) listenForJoins() {
 // added/removed. It also saves a reference to the resizeJob in the `jobs` map
 // for future lookup by JobID.
 func (c *cluster) unprotectedGenerateResizeJob(nodeAction nodeAction) (*resizeJob, error) {
-	c.logger.Printf("generateResizeJob: %v", nodeAction)
+	c.logger.Infof("generateResizeJob: %v", nodeAction)
 
 	j, err := c.unprotectedGenerateResizeJobByAction(nodeAction)
 	if err != nil {
 		return nil, errors.Wrap(err, "generating job")
 	}
-	c.logger.Printf("generated resizeJob: %d", j.ID)
+	c.logger.Infof("generated resizeJob: %d", j.ID)
 
 	// Save job in jobs map for future reference.
 	c.jobs[j.ID] = j
@@ -1235,14 +1235,14 @@ func (c *cluster) unprotectedCompleteCurrentJob(state string) error {
 
 // followResizeInstruction is run by any node that receives a ResizeInstruction.
 func (c *cluster) followResizeInstruction(instr *ResizeInstruction) error {
-	c.logger.Printf("follow resize instruction on %s", c.Node.ID)
+	c.logger.Infof("follow resize instruction on %s", c.Node.ID)
 	// Make sure the cluster status on this node agrees with the Coordinator
 	// before attempting a resize.
 	if err := c.mergeClusterStatus(instr.ClusterStatus); err != nil {
 		return errors.Wrap(err, "merging cluster status")
 	}
 
-	c.logger.Printf("done MergeClusterStatus, start goroutine")
+	c.logger.Infof("done MergeClusterStatus, start goroutine")
 
 	// The actual resizing runs in a goroutine because we don't want to block
 	// the distribution of other ResizeInstructions to the rest of the cluster.
@@ -1262,14 +1262,14 @@ func (c *cluster) followResizeInstruction(instr *ResizeInstruction) error {
 		if err := func() error {
 
 			// Sync the schema received in the resize instruction.
-			c.logger.Debugf("holder applySchema")
+			c.logger.Infof("holder applySchema")
 			if err := c.holder.applySchema(instr.Schema); err != nil {
 				return errors.Wrap(err, "applying schema")
 			}
 
 			// Request each source file in ResizeSources.
 			for _, src := range instr.Sources {
-				c.logger.Printf("get shard %d for index %s from host %s", src.Shard, src.Index, src.Node.URI)
+				c.logger.Infof("get shard %d for index %s from host %s", src.Shard, src.Index, src.Node.URI)
 
 				srcURI := src.Node.URI
 
@@ -1292,7 +1292,7 @@ func (c *cluster) followResizeInstruction(instr *ResizeInstruction) error {
 				}
 
 				// Stream shard from remote node.
-				c.logger.Printf("retrieve shard %d for index %s from host %s", src.Shard, src.Index, src.Node.URI)
+				c.logger.Infof("retrieve shard %d for index %s from host %s", src.Shard, src.Index, src.Node.URI)
 				rd, err := c.InternalClient.RetrieveShardFromURI(context.Background(), src.Index, src.Field, src.Shard, srcURI)
 				if err != nil {
 					// For now it is an acceptable error if the fragment is not found
@@ -1324,7 +1324,7 @@ func (c *cluster) followResizeInstruction(instr *ResizeInstruction) error {
 		}
 
 		if err := c.sendTo(instr.Coordinator, complete); err != nil {
-			c.logger.Printf("sending resizeInstructionComplete error: err=%s", err)
+			c.logger.Infof("sending resizeInstructionComplete error: err=%s", err)
 		}
 	}()
 	return nil
@@ -1422,18 +1422,18 @@ func (j *resizeJob) setState(state string) {
 
 // run distributes ResizeInstructions.
 func (j *resizeJob) run() error {
-	j.Logger.Printf("run resizeJob")
+	j.Logger.Infof("run resizeJob")
 	// Set job state to RUNNING.
 	j.setState(resizeJobStateRunning)
 
 	// Job can be considered done in the case where it doesn't require any action.
 	if !j.nodesArePending() {
-		j.Logger.Printf("resizeJob contains no pending tasks; mark as done")
+		j.Logger.Infof("resizeJob contains no pending tasks; mark as done")
 		j.result <- resizeJobStateDone
 		return nil
 	}
 
-	j.Logger.Printf("distribute tasks for resizeJob")
+	j.Logger.Infof("distribute tasks for resizeJob")
 	err := j.distributeResizeInstructions()
 	if err != nil {
 		j.result <- resizeJobStateAborted
@@ -1463,7 +1463,7 @@ func (j *resizeJob) nodesArePending() bool {
 }
 
 func (j *resizeJob) distributeResizeInstructions() error {
-	j.Logger.Printf("distributeResizeInstructions for job %d", j.ID)
+	j.Logger.Infof("distributeResizeInstructions for job %d", j.ID)
 	// Loop through the ResizeInstructions in resizeJob and send to each host.
 	for _, instr := range j.Instructions {
 		// Because the node may not be in the cluster yet, create
@@ -1472,7 +1472,7 @@ func (j *resizeJob) distributeResizeInstructions() error {
 			ID:  instr.Node.ID,
 			URI: instr.Node.URI,
 		}
-		j.Logger.Printf("send resize instructions: %v", instr)
+		j.Logger.Infof("send resize instructions: %v", instr)
 		if err := j.Broadcaster.SendTo(node, instr); err != nil {
 			return errors.Wrap(err, "sending instruction")
 		}
@@ -1647,7 +1647,7 @@ func (c *cluster) ReceiveEvent(e *NodeEvent) (err error) {
 
 	switch e.Event {
 	case NodeJoin:
-		c.logger.Debugf("nodeJoin of %s on %s", e.Node.URI, c.Node.URI)
+		c.logger.Infof("nodeJoin of %s on %s", e.Node.URI, c.Node.URI)
 		// Ignore the event if this is not the coordinator.
 		if !c.isCoordinator() {
 			return nil
@@ -1657,7 +1657,7 @@ func (c *cluster) ReceiveEvent(e *NodeEvent) (err error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if c.unprotectedIsCoordinator() {
-			c.logger.Printf("received node leave: %v", e.Node)
+			c.logger.Infof("received node leave: %v", e.Node)
 			// if removeNodeBasicSorted succeeds, that means that the node was
 			// not already removed by a removeNode request. We treat this as the
 			// host being temporarily unavailable, and expect it to come back
@@ -1670,7 +1670,7 @@ func (c *cluster) ReceiveEvent(e *NodeEvent) (err error) {
 			}
 		}
 	case NodeUpdate:
-		c.logger.Printf("received node update event: id: %v, string: %v, uri: %v", e.Node.ID, e.Node.String(), e.Node.URI)
+		c.logger.Infof("received node update event: id: %v, string: %v, uri: %v", e.Node.ID, e.Node.String(), e.Node.URI)
 		// NodeUpdate is intentionally not implemented.
 	}
 
@@ -1681,12 +1681,12 @@ func (c *cluster) ReceiveEvent(e *NodeEvent) (err error) {
 func (c *cluster) nodeJoin(node *Node) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.logger.Printf("node join event on coordinator, node: %s, id: %s", node.URI, node.ID)
+	c.logger.Infof("node join event on coordinator, node: %s, id: %s", node.URI, node.ID)
 	if c.needTopologyAgreement() {
 		// A host that is not part of the topology can't be added to the STARTING cluster.
 		if !c.Topology.ContainsID(node.ID) {
 			err := fmt.Sprintf("host is not in topology: %s", node.ID)
-			c.logger.Printf("%v", err)
+			c.logger.Errorf("%v", err)
 			return errors.New(err)
 		}
 
@@ -1721,7 +1721,7 @@ func (c *cluster) nodeJoin(node *Node) error {
 	// the cluster.
 	if cnode := c.unprotectedNodeByID(node.ID); cnode != nil {
 		if cnode.URI != node.URI {
-			c.logger.Printf("node: %v changed URI from %s to %s", cnode.ID, cnode.URI, node.URI)
+			c.logger.Infof("node: %v changed URI from %s to %s", cnode.ID, cnode.URI, node.URI)
 			cnode.URI = node.URI
 		}
 		return c.unprotectedSetStateAndBroadcast(c.determineClusterState())
@@ -1804,7 +1804,7 @@ func (c *cluster) nodeLeave(nodeID string) error {
 func (c *cluster) mergeClusterStatus(cs *ClusterStatus) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.logger.Printf("merge cluster status: %v", cs)
+	c.logger.Infof("merge cluster status: %v", cs)
 	// Ignore status updates from self (coordinator).
 	if c.unprotectedIsCoordinator() {
 		return nil
@@ -1818,7 +1818,7 @@ func (c *cluster) mergeClusterStatus(cs *ClusterStatus) error {
 	// Add all nodes from the coordinator.
 	for _, node := range officialNodes {
 		if node.ID == c.Node.ID && node.State != c.Node.State {
-			c.logger.Printf("mismatched state in mergeClusterStatus got %v have %v", node.State, c.Node.State)
+			c.logger.Warnf("mismatched state in mergeClusterStatus got %v have %v", node.State, c.Node.State)
 			go c.setNodeState(c.Node.State)
 		}
 		if err := c.addNode(node); err != nil {

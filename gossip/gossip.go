@@ -248,7 +248,7 @@ func NewMemberSet(cfg Config, api *pilosa.API, options ...memberSetOption) (*mem
 func (g *memberSet) NodeMeta(limit int) []byte {
 	buf, err := g.papi.Serializer.Marshal(g.papi.Node())
 	if err != nil {
-		g.Logger.Printf("marshal message error: %s", err)
+		g.Logger.Errorf("marshal message error: %s", err)
 		return []byte{}
 	}
 	return buf
@@ -259,7 +259,7 @@ func (g *memberSet) NodeMeta(limit int) []byte {
 func (g *memberSet) NotifyMsg(b []byte) {
 	err := g.papi.ClusterMessage(context.Background(), bytes.NewBuffer(b))
 	if err != nil {
-		g.Logger.Printf("cluster message error: %s", err)
+		g.Logger.Errorf("cluster message error: %s", err)
 	}
 }
 
@@ -294,7 +294,7 @@ func (g *memberSet) LocalState(join bool) []byte {
 	// Marshal nodestate data to bytes.
 	buf, err := pilosa.MarshalInternalMessage(m, g.papi.Serializer)
 	if err != nil {
-		g.Logger.Printf("error marshalling nodestate data, err=%s", err)
+		g.Logger.Errorf("error marshalling nodestate data, err=%s", err)
 		return []byte{}
 	}
 	return buf
@@ -305,7 +305,7 @@ func (g *memberSet) LocalState(join bool) []byte {
 func (g *memberSet) MergeRemoteState(buf []byte, join bool) {
 	err := g.papi.ClusterMessage(context.Background(), bytes.NewBuffer(buf))
 	if err != nil {
-		g.Logger.Printf("merge state error: %s", err)
+		g.Logger.Errorf("merge state error: %s", err)
 	}
 }
 

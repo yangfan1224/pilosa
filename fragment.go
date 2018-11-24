@@ -271,7 +271,7 @@ func (f *fragment) openCache() error {
 	// Unmarshal cache data.
 	var pb internal.Cache
 	if err := proto.Unmarshal(buf, &pb); err != nil {
-		f.Logger.Printf("error unmarshaling cache data, skipping: path=%s, err=%s", path, err)
+		f.Logger.Errorf("error unmarshaling cache data, skipping: path=%s, err=%s", path, err)
 		return nil
 	}
 
@@ -296,13 +296,13 @@ func (f *fragment) Close() error {
 func (f *fragment) close() error {
 	// Flush cache if closing gracefully.
 	if err := f.flushCache(); err != nil {
-		f.Logger.Printf("fragment: error flushing cache on close: err=%s, path=%s", err, f.path)
+		f.Logger.Errorf("fragment: error flushing cache on close: err=%s, path=%s", err, f.path)
 		return errors.Wrap(err, "flushing cache")
 	}
 
 	// Close underlying storage.
 	if err := f.closeStorage(); err != nil {
-		f.Logger.Printf("fragment: error closing storage: err=%s, path=%s", err, f.path)
+		f.Logger.Errorf("fragment: error closing storage: err=%s, path=%s", err, f.path)
 		return errors.Wrap(err, "closing storage")
 	}
 
@@ -1722,7 +1722,7 @@ func (f *fragment) Snapshot() error {
 }
 func track(start time.Time, message string, stats stats.StatsClient, logger logger.Logger) {
 	elapsed := time.Since(start)
-	logger.Printf("%s took %s", message, elapsed)
+	logger.Debugf("%s took %s", message, elapsed)
 	stats.Histogram("snapshot", elapsed.Seconds(), 1.0)
 }
 

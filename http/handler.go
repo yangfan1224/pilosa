@@ -151,7 +151,7 @@ func NewHandler(opts ...handlerOption) (*Handler, error) {
 func (h *Handler) Serve() error {
 	err := h.server.Serve(h.ln)
 	if err != nil && err.Error() != "http: Server closed" {
-		h.logger.Printf("HTTP handler terminated with error: %s\n", err)
+		h.logger.Errorf("HTTP handler terminated with error: %s\n", err)
 		return errors.Wrap(err, "serve http")
 	}
 	return nil
@@ -272,7 +272,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			stack := debug.Stack()
 			msg := "PANIC: %s\n%s"
-			h.logger.Printf(msg, err, stack)
+			h.logger.Errorf(msg, err, stack)
 			fmt.Fprintf(w, msg, err, stack)
 		}
 	}()
@@ -286,7 +286,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	longQueryTime := h.api.LongQueryTime()
 	if longQueryTime > 0 && dif > longQueryTime {
-		h.logger.Printf("%s %s %v", r.Method, r.URL.String(), dif)
+		h.logger.Warnf("%s %s %v", r.Method, r.URL.String(), dif)
 		statsTags = append(statsTags, "slow_query")
 	}
 
@@ -389,7 +389,7 @@ func (h *Handler) handleGetSchema(w http.ResponseWriter, r *http.Request) {
 
 	schema := h.api.Schema(r.Context())
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{"indexes": schema}); err != nil {
-		h.logger.Printf("write schema response error: %s", err)
+		h.logger.Errorf("write schema response error: %s", err)
 	}
 }
 
@@ -405,7 +405,7 @@ func (h *Handler) handleGetStatus(w http.ResponseWriter, r *http.Request) {
 		LocalID: h.api.Node().ID,
 	}
 	if err := json.NewEncoder(w).Encode(status); err != nil {
-		h.logger.Printf("write status response error: %s", err)
+		h.logger.Errorf("write status response error: %s", err)
 	}
 }
 
@@ -416,7 +416,7 @@ func (h *Handler) handleGetInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	info := h.api.Info()
 	if err := json.NewEncoder(w).Encode(info); err != nil {
-		h.logger.Printf("write info response error: %s", err)
+		h.logger.Errorf("write info response error: %s", err)
 	}
 }
 
@@ -468,7 +468,7 @@ func (h *Handler) handlePostQuery(w http.ResponseWriter, r *http.Request) {
 
 	// Write response back to client.
 	if err := h.writeQueryResponse(w, r, &resp); err != nil {
-		h.logger.Printf("write query response error: %s", err)
+		h.logger.Errorf("write query response error: %s", err)
 	}
 }
 
@@ -481,7 +481,7 @@ func (h *Handler) handleGetShardsMax(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(getShardsMaxResponse{
 		Standard: h.api.MaxShards(r.Context()),
 	}); err != nil {
-		h.logger.Printf("write shards-max response error: %s", err)
+		h.logger.Errorf("write shards-max response error: %s", err)
 	}
 }
 
@@ -504,7 +504,7 @@ func (h *Handler) handleGetIndex(w http.ResponseWriter, r *http.Request) {
 	for _, idx := range h.api.Schema(r.Context()) {
 		if idx.Name == indexName {
 			if err := json.NewEncoder(w).Encode(idx); err != nil {
-				h.logger.Printf("write response error: %s", err)
+				h.logger.Errorf("write response error: %s", err)
 			}
 			return
 		}
@@ -660,7 +660,7 @@ func (h *Handler) handlePostIndexAttrDiff(w http.ResponseWriter, r *http.Request
 	if err := json.NewEncoder(w).Encode(postIndexAttrDiffResponse{
 		Attrs: attrs,
 	}); err != nil {
-		h.logger.Printf("response encoding error: %s", err)
+		h.logger.Errorf("response encoding error: %s", err)
 	}
 }
 
@@ -885,7 +885,7 @@ func (h *Handler) handlePostFieldAttrDiff(w http.ResponseWriter, r *http.Request
 	if err := json.NewEncoder(w).Encode(postFieldAttrDiffResponse{
 		Attrs: attrs,
 	}); err != nil {
-		h.logger.Printf("response encoding error: %s", err)
+		h.logger.Errorf("response encoding error: %s", err)
 	}
 }
 
@@ -1126,7 +1126,7 @@ func (h *Handler) handleGetFragmentNodes(w http.ResponseWriter, r *http.Request)
 
 	// Write to response.
 	if err := json.NewEncoder(w).Encode(nodes); err != nil {
-		h.logger.Printf("json write error: %s", err)
+		h.logger.Errorf("json write error: %s", err)
 	}
 }
 
@@ -1142,7 +1142,7 @@ func (h *Handler) handleGetNodes(w http.ResponseWriter, r *http.Request) {
 
 	// Write to response.
 	if err := json.NewEncoder(w).Encode(nodes); err != nil {
-		h.logger.Printf("json write error: %s", err)
+		h.logger.Errorf("json write error: %s", err)
 	}
 }
 
@@ -1194,7 +1194,7 @@ func (h *Handler) handleGetFragmentBlocks(w http.ResponseWriter, r *http.Request
 	if err := json.NewEncoder(w).Encode(getFragmentBlocksResponse{
 		Blocks: blocks,
 	}); err != nil {
-		h.logger.Printf("block response encoding error: %s", err)
+		h.logger.Errorf("block response encoding error: %s", err)
 	}
 }
 
@@ -1214,7 +1214,7 @@ func (h *Handler) handleGetVersion(w http.ResponseWriter, r *http.Request) {
 		Version: h.api.Version(),
 	})
 	if err != nil {
-		h.logger.Printf("write version response error: %s", err)
+		h.logger.Errorf("write version response error: %s", err)
 	}
 }
 
@@ -1271,7 +1271,7 @@ func (h *Handler) handlePostClusterResizeSetCoordinator(w http.ResponseWriter, r
 		Old: oldNode,
 		New: newNode,
 	}); err != nil {
-		h.logger.Printf("response encoding error: %s", err)
+		h.logger.Errorf("response encoding error: %s", err)
 	}
 }
 
@@ -1312,7 +1312,7 @@ func (h *Handler) handlePostClusterResizeRemoveNode(w http.ResponseWriter, r *ht
 	if err := json.NewEncoder(w).Encode(removeNodeResponse{
 		Remove: removeNode,
 	}); err != nil {
-		h.logger.Printf("response encoding error: %s", err)
+		h.logger.Errorf("response encoding error: %s", err)
 	}
 }
 
@@ -1348,7 +1348,7 @@ func (h *Handler) handlePostClusterResizeAbort(w http.ResponseWriter, r *http.Re
 	if err := json.NewEncoder(w).Encode(clusterResizeAbortResponse{
 		Info: msg,
 	}); err != nil {
-		h.logger.Printf("response encoding error: %s", err)
+		h.logger.Errorf("response encoding error: %s", err)
 	}
 }
 
@@ -1384,7 +1384,7 @@ func (h *Handler) handlePostClusterMessage(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := json.NewEncoder(w).Encode(defaultClusterMessageResponse{}); err != nil {
-		h.logger.Printf("response encoding error: %s", err)
+		h.logger.Errorf("response encoding error: %s", err)
 	}
 }
 
@@ -1421,7 +1421,7 @@ func (h *Handler) handleGetTranslateData(w http.ResponseWriter, r *http.Request)
 		if err == io.EOF {
 			return
 		} else if err != nil {
-			h.logger.Printf("http: translate store read error: %s", err)
+			h.logger.Errorf("http: translate store read error: %s", err)
 			return
 		} else if n == 0 {
 			continue
@@ -1429,7 +1429,7 @@ func (h *Handler) handleGetTranslateData(w http.ResponseWriter, r *http.Request)
 
 		// Write to response & flush.
 		if _, err := w.Write(buf[:n]); err != nil {
-			h.logger.Printf("http: translate store response write error: %s", err)
+			h.logger.Errorf("http: translate store response write error: %s", err)
 			return
 		} else if w, ok := w.(http.Flusher); ok {
 			w.Flush()
@@ -1546,6 +1546,6 @@ func (h *Handler) handlePostImportRoaring(w http.ResponseWriter, r *http.Request
 	// Write response.
 	_, err = w.Write(buf)
 	if err != nil {
-		h.logger.Printf("writing import-roaring response: %v", err)
+		h.logger.Errorf("writing import-roaring response: %v", err)
 	}
 }

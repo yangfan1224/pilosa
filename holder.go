@@ -134,7 +134,7 @@ func (h *Holder) Open() error {
 
 	h.setFileLimit()
 
-	h.Logger.Printf("open holder path: %s", h.Path)
+	h.Logger.Infof("open holder path: %s", h.Path)
 	if err := os.MkdirAll(h.Path, 0777); err != nil {
 		return errors.Wrap(err, "creating directory")
 	}
@@ -157,18 +157,18 @@ func (h *Holder) Open() error {
 			continue
 		}
 
-		h.Logger.Printf("opening index: %s", filepath.Base(fi.Name()))
+		h.Logger.Infof("opening index: %s", filepath.Base(fi.Name()))
 
 		index, err := h.newIndex(h.IndexPath(filepath.Base(fi.Name())), filepath.Base(fi.Name()))
 		if errors.Cause(err) == ErrName {
-			h.Logger.Printf("ERROR opening index: %s, err=%s", fi.Name(), err)
+			h.Logger.Errorf("ERROR opening index: %s, err=%s", fi.Name(), err)
 			continue
 		} else if err != nil {
 			return errors.Wrap(err, "opening index")
 		}
 		if err := index.Open(); err != nil {
 			if err == ErrName {
-				h.Logger.Printf("ERROR opening index: %s, err=%s", index.Name(), err)
+				h.Logger.Errorf("ERROR opening index: %s, err=%s", index.Name(), err)
 				continue
 			}
 			return fmt.Errorf("open index: name=%s, err=%s", index.Name(), err)
@@ -177,7 +177,7 @@ func (h *Holder) Open() error {
 		h.indexes[index.Name()] = index
 		h.mu.Unlock()
 	}
-	h.Logger.Printf("open holder: complete")
+	h.Logger.Infof("open holder: complete")
 
 	// Periodically flush cache.
 	h.wg.Add(1)
@@ -284,10 +284,13 @@ func (h *Holder) Schema() []*IndexInfo {
 
 // limitedSchema returns schema information for all indexes and fields.
 func (h *Holder) limitedSchema() []*IndexInfo {
+	h.Logger.Infof("Enter func limitedSchema.")
 	var a []*IndexInfo
 	for _, index := range h.Indexes() {
+		h.Logger.Infof("func limitedSchema: index name: %s, index option: %v", index.name, index.Options())
 		di := &IndexInfo{Name: index.Name(), Options: index.Options()}
 		for _, field := range index.Fields() {
+			h.Logger.Infof("func limitedSchema: field name: %s, field option: %v", field.name, field.Options())
 			fi := &FieldInfo{Name: field.Name(), Options: field.Options()}
 			di.Fields = append(di.Fields, fi)
 		}
@@ -295,6 +298,7 @@ func (h *Holder) limitedSchema() []*IndexInfo {
 		a = append(a, di)
 	}
 	sort.Sort(indexInfoSlice(a))
+	h.Logger.Infof("Leave func limitedSchema.")
 	return a
 }
 
@@ -502,7 +506,7 @@ func (h *Holder) flushCaches() {
 					}
 
 					if err := fragment.FlushCache(); err != nil {
-						h.Logger.Printf("ERROR flushing cache: err=%s, path=%s", err, fragment.cachePath())
+						h.Logger.Errorf("ERROR flushing cache: err=%s, path=%s", err, fragment.cachePath())
 					}
 				}
 			}
@@ -526,7 +530,7 @@ func (h *Holder) setFileLimit() {
 	newLimit := &syscall.Rlimit{}
 
 	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, oldLimit); err != nil {
-		h.Logger.Printf("ERROR checking open file limit: %s", err)
+		h.Logger.Errorf("ERROR checking open file limit: %s", err)
 		return
 	}
 	// If the soft limit is lower than the FileLimit constant, we will try to change it.
@@ -550,20 +554,20 @@ func (h *Holder) setFileLimit() {
 				}
 				// Try setting again with lowered Max (hard limit)
 				if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, newLimit); err != nil {
-					h.Logger.Printf("ERROR setting open file limit: %s", err)
+					h.Logger.Errorf("ERROR setting open file limit: %s", err)
 				}
 				// If we weren't trying to change the hard limit, let the user know something is wrong.
 			} else {
-				h.Logger.Printf("ERROR setting open file limit: %s", err)
+				h.Logger.Errorf("ERROR setting open file limit: %s", err)
 			}
 		}
 
 		// Check the limit after setting it. OS may not obey Setrlimit call.
 		if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, oldLimit); err != nil {
-			h.Logger.Printf("ERROR checking open file limit: %s", err)
+			h.Logger.Errorf("ERROR checking open file limit: %s", err)
 		} else {
 			if oldLimit.Cur < fileLimit {
-				h.Logger.Printf("WARNING: Tried to set open file limit to %d, but it is %d. You may consider running \"sudo ulimit -n %d\" before starting Pilosa to avoid \"too many open files\" error. See https://www.pilosa.com/docs/latest/administration/#open-file-limits for more information.", fileLimit, oldLimit.Cur, fileLimit)
+				h.Logger.Errorf("WARNING: Tried to set open file limit to %d, but it is %d. You may consider running \"sudo ulimit -n %d\" before starting Pilosa to avoid \"too many open files\" error. See https://www.pilosa.com/docs/latest/administration/#open-file-limits for more information.", fileLimit, oldLimit.Cur, fileLimit)
 			}
 		}
 	}
@@ -572,7 +576,7 @@ func (h *Holder) setFileLimit() {
 func (h *Holder) loadNodeID() (string, error) {
 	idPath := path.Join(h.Path, ".id")
 	nodeID := ""
-	h.Logger.Printf("load NodeID: %s", idPath)
+	h.Logger.Infof("load NodeID: %s", idPath)
 	if err := os.MkdirAll(h.Path, 0777); err != nil {
 		return "", errors.Wrap(err, "creating directory")
 	}
