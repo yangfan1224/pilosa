@@ -1017,6 +1017,7 @@ func (h *Handler) handlePostImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer r.Body.Close()
 	// Unmarshal request based on field type.
 	if field.Type() == pilosa.FieldTypeInt {
 		// Field type: Int
