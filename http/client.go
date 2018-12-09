@@ -155,6 +155,10 @@ func (c *InternalClient) CreateIndex(ctx context.Context, index string, opt pilo
 		}
 		return err
 	}
+
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
+
 	return nil
 }
 
@@ -927,7 +931,9 @@ func (c *InternalClient) SendMessage(ctx context.Context, uri *pilosa.URI, msg [
 	req.Header.Set("Accept", "application/json")
 
 	// Execute request.
-	_, err = c.executeRequest(req.WithContext(ctx))
+	resp, err := c.executeRequest(req.WithContext(ctx))
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
 	return err
 }
 
